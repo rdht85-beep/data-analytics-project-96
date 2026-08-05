@@ -1,4 +1,4 @@
-"visitor_id","visit_date","source","medium","campaign","lead_id","created_at","amount","closing_reason","status_id"
+"visitor_id","visit_date","utm_source","utm_medium","utm_campaign","lead_id","created_at","amount","closing_reason","status_id"
 "35060e525ca62de0a0aa93992c7e07799d855f79",2023-06-01 10:40:28.000,yandex,cpc,prof-frontend,"26066151",2023-06-15 12:52:40.000,237990,Успешная продажа,142
 d183fbda6f03b965a1cd1cee0a3f7b81a44b78ec,2023-06-01 14:39:00.000,yandex,cpc,base-frontend,"74450379",2023-06-30 14:36:31.000,201150,Успешная продажа,142
 ca003c89182365dd75262e54772fda03ee923e92,2023-06-01 04:58:00.000,vk,cpc,freemium-frontend,"48838540",2023-06-20 20:49:16.000,189210,Успешная продажа,142

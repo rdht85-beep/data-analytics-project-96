@@ -1,68 +1,58 @@
-WITH 
-paid_sessions_ranked AS (
-    SELECT 
+WITH sessions_flagged AS (
+    SELECT
         visitor_id,
-        visit_date,
         source,
         medium,
         campaign,
-        ROW_NUMBER() OVER (PARTITION BY visitor_id ORDER BY visit_date ASC) as session_seq
+        visit_date,
+        (medium IN ('cpc','cpm','cpa','youtube','cpp','tg','social')) AS is_paid
     FROM sessions
-    WHERE LOWER(medium) IN ('cpc', 'cpm', 'cpa', 'youtube', 'cpp', 'tg', 'social')
 ),
 
-leads_with_attributed_session AS (
-    SELECT 
-        l.lead_id,
-        l.visitor_id,
-        l.created_at,
-        l.amount,
-        l.closing_reason,
-        l.status_id,
-        (
-            SELECT s.session_seq
-            FROM paid_sessions_ranked s
-            WHERE s.visitor_id = l.visitor_id 
-              AND s.visit_date <= l.created_at
-            ORDER BY s.visit_date DESC
-            LIMIT 1
-        ) as attributed_session_seq
-    FROM leads l
-),
-
-combined_data AS (
-    SELECT 
+last_paid_for_lead AS (
+    SELECT DISTINCT ON (l.lead_id)
         s.visitor_id,
         s.visit_date,
-        s.source,
-        s.medium,
-        s.campaign,
+        s.source   AS utm_source,
+        s.medium   AS utm_medium,
+        s.campaign AS utm_campaign,
         l.lead_id,
         l.created_at,
         l.amount,
         l.closing_reason,
         l.status_id
-    FROM paid_sessions_ranked s
-    LEFT JOIN leads_with_attributed_session l 
-        ON s.visitor_id = l.visitor_id 
-       AND s.session_seq = l.attributed_session_seq
+    FROM leads l
+    JOIN sessions_flagged s
+        ON s.visitor_id = l.visitor_id
+       AND s.is_paid
+       AND s.visit_date <= l.created_at
+    ORDER BY l.lead_id, s.visit_date DESC
+),
+
+last_paid_no_lead AS (
+    SELECT DISTINCT ON (s.visitor_id)
+        s.visitor_id,
+        s.visit_date,
+        s.source   AS utm_source,
+        s.medium   AS utm_medium,
+        s.campaign AS utm_campaign,
+        NULL::varchar   AS lead_id,
+        NULL::timestamp AS created_at,
+        NULL::integer   AS amount,
+        NULL::varchar   AS closing_reason,
+        NULL::bigint    AS status_id
+    FROM sessions_flagged s
+    WHERE s.is_paid
+      AND s.visitor_id NOT IN (SELECT visitor_id FROM leads)
+    ORDER BY s.visitor_id, s.visit_date DESC
 )
 
-SELECT 
-    visitor_id,
-    visit_date,
-    source,
-    medium,
-    campaign,
-    lead_id,
-    created_at,
-    amount,
-    closing_reason,
-    status_id
-FROM combined_data
-ORDER BY 
+SELECT * FROM last_paid_for_lead
+UNION ALL
+SELECT * FROM last_paid_no_lead
+ORDER BY
     amount DESC NULLS LAST,
     visit_date ASC,
-    source ASC,
-    medium ASC,
-    campaign ASC;
+    utm_source ASC,
+    utm_medium ASC,
+    utm_campaign ASC;
