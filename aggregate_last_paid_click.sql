@@ -73,6 +73,7 @@ last_paid_for_lead AS (
 
 leads_agg AS (
     SELECT
+    	COUNT(visitor_id) AS visitors_count,
         visit_date::date AS visit_date,
         utm_source,
         utm_medium,
@@ -86,46 +87,33 @@ leads_agg AS (
         ) AS revenue
     FROM last_paid_for_lead
     GROUP BY visit_date::date, utm_source, utm_medium, utm_campaign
-),
-
-all_keys AS (
-    SELECT visit_date, utm_source, utm_medium, utm_campaign FROM visits_agg
-    UNION
-    SELECT visit_date, utm_source, utm_medium, utm_campaign FROM spend_agg
-    UNION
-    SELECT visit_date, utm_source, utm_medium, utm_campaign FROM leads_agg
 )
 
 SELECT
-    k.visit_date,
+    la.visit_date,
     v.visitors_count,
-    k.utm_source,
-    k.utm_medium,
-    k.utm_campaign,
+    la.utm_source,
+    la.utm_medium,
+    la.utm_campaign,
     sp.total_cost,
-    l.leads_count,
-    l.purchases_count,
-    l.revenue
-FROM all_keys k
-LEFT JOIN visits_agg v
-    ON v.visit_date = k.visit_date
-   AND v.utm_source IS NOT DISTINCT FROM k.utm_source
-   AND v.utm_medium IS NOT DISTINCT FROM k.utm_medium
-   AND v.utm_campaign IS NOT DISTINCT FROM k.utm_campaign
-LEFT JOIN spend_agg sp
-    ON sp.visit_date = k.visit_date
-   AND sp.utm_source IS NOT DISTINCT FROM k.utm_source
-   AND sp.utm_medium IS NOT DISTINCT FROM k.utm_medium
-   AND sp.utm_campaign IS NOT DISTINCT FROM k.utm_campaign
-LEFT JOIN leads_agg l
-    ON l.visit_date = k.visit_date
-   AND l.utm_source IS NOT DISTINCT FROM k.utm_source
-   AND l.utm_medium IS NOT DISTINCT FROM k.utm_medium
-   AND l.utm_campaign IS NOT DISTINCT FROM k.utm_campaign
+    leads_count,
+    purchases_count,
+    revenue
+FROM leads_agg la
+INNER  JOIN visits_agg v
+    ON v.visit_date = la.visit_date
+   AND v.utm_source IS NOT DISTINCT FROM la.utm_source
+   AND v.utm_medium IS NOT DISTINCT FROM la.utm_medium
+   AND v.utm_campaign IS NOT DISTINCT FROM la.utm_campaign
+inner JOIN spend_agg sp
+    ON sp.visit_date = la.visit_date
+   AND sp.utm_source IS NOT DISTINCT FROM la.utm_source
+   AND sp.utm_medium IS NOT DISTINCT FROM la.utm_medium
+   AND sp.utm_campaign IS NOT DISTINCT FROM la.utm_campaign
 ORDER BY
-    l.revenue DESC NULLS LAST,
-    k.visit_date ASC,
-    v.visitors_count DESC,
-    k.utm_source ASC,
-    k.utm_medium ASC,
-    k.utm_campaign ASC;
+    revenue DESC NULLS LAST,
+    la.visit_date ASC,
+    visitors_count DESC,
+    la.utm_source ASC,
+    la.utm_medium ASC,
+    la.utm_campaign ASC;
