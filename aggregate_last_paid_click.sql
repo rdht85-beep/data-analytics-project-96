@@ -1,13 +1,16 @@
-WITH sessions_flagged AS (
+WITH 
+
+sessions_flagged AS (
     SELECT
         visitor_id,
         source,
         medium,
         campaign,
-        visit_date,
-        (medium NOT IN ('organic')) AS is_paid
-    FROM sessions
+        visit_date
+    FROM sessions s
+    WHERE s.medium IN ('cpc','cpm','cpa','youtube','cpp','tg','social')
 ),
+
 visits_agg AS (
     SELECT
         visit_date::date AS visit_date,
@@ -16,9 +19,9 @@ visits_agg AS (
         campaign AS utm_campaign,
         COUNT(DISTINCT visitor_id) AS visitors_count
     FROM sessions_flagged
-    WHERE is_paid = TRUE
     GROUP BY visit_date::date, source, medium, campaign
 ),
+
 ads_union AS (
     SELECT campaign_date, utm_source, utm_medium, utm_campaign, daily_spent
     FROM vk_ads
@@ -26,6 +29,7 @@ ads_union AS (
     SELECT campaign_date, utm_source, utm_medium, utm_campaign, daily_spent
     FROM ya_ads
 ),
+
 spend_agg AS (
     SELECT
         campaign_date::date AS visit_date,
@@ -36,6 +40,7 @@ spend_agg AS (
     FROM ads_union
     GROUP BY campaign_date::date, utm_source, utm_medium, utm_campaign
 ),
+
 last_paid_for_lead_ranked AS (
     SELECT
         s.visitor_id,
@@ -44,6 +49,7 @@ last_paid_for_lead_ranked AS (
         s.medium   AS utm_medium,
         s.campaign AS utm_campaign,
         l.lead_id,
+        l.created_at,
         l.amount,
         l.closing_reason,
         l.status_id,
@@ -54,16 +60,17 @@ last_paid_for_lead_ranked AS (
     FROM leads l
     JOIN sessions_flagged s
         ON s.visitor_id = l.visitor_id
-       AND s.is_paid
        AND s.visit_date <= l.created_at
 ),
+
 last_paid_for_lead AS (
     SELECT
         visitor_id, visit_date, utm_source, utm_medium, utm_campaign,
-        lead_id, amount, closing_reason, status_id
+        lead_id, created_at, amount, closing_reason, status_id
     FROM last_paid_for_lead_ranked
     WHERE rn = 1
 ),
+
 leads_agg AS (
     SELECT
         visit_date::date AS visit_date,
@@ -80,6 +87,7 @@ leads_agg AS (
     FROM last_paid_for_lead
     GROUP BY visit_date::date, utm_source, utm_medium, utm_campaign
 ),
+
 all_keys AS (
     SELECT visit_date, utm_source, utm_medium, utm_campaign FROM visits_agg
     UNION
@@ -87,6 +95,7 @@ all_keys AS (
     UNION
     SELECT visit_date, utm_source, utm_medium, utm_campaign FROM leads_agg
 )
+
 SELECT
     k.visit_date,
     v.visitors_count,
