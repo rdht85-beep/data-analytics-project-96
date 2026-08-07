@@ -4,13 +4,13 @@ WITH sessions_flagged AS (
         source,
         medium,
         campaign,
-        visit_date,
-        (medium IN ('cpc','cpm','cpa','youtube','cpp','tg','social')) AS is_paid
-    FROM sessions
+        visit_date
+    FROM sessions s
+    WHERE s.medium IN ('cpc','cpm','cpa','youtube','cpp','tg','social')
 ),
 
-last_paid_for_lead AS (
-    SELECT DISTINCT ON (l.lead_id)
+last_paid_for_lead_ranked AS (
+    SELECT
         s.visitor_id,
         s.visit_date,
         s.source   AS utm_source,
@@ -20,17 +20,26 @@ last_paid_for_lead AS (
         l.created_at,
         l.amount,
         l.closing_reason,
-        l.status_id
+        l.status_id,
+        ROW_NUMBER() OVER (
+            PARTITION BY l.lead_id
+            ORDER BY s.visit_date DESC
+        ) AS rn
     FROM leads l
     JOIN sessions_flagged s
         ON s.visitor_id = l.visitor_id
-       AND s.is_paid
        AND s.visit_date <= l.created_at
-    ORDER BY l.lead_id, s.visit_date DESC
+),
+last_paid_for_lead AS (
+    SELECT
+        visitor_id, visit_date, utm_source, utm_medium, utm_campaign,
+        lead_id, created_at, amount, closing_reason, status_id
+    FROM last_paid_for_lead_ranked
+    WHERE rn = 1
 ),
 
-last_paid_no_lead AS (
-    SELECT DISTINCT ON (s.visitor_id)
+last_paid_no_lead_ranked AS (
+    SELECT
         s.visitor_id,
         s.visit_date,
         s.source   AS utm_source,
@@ -40,11 +49,20 @@ last_paid_no_lead AS (
         NULL::timestamp AS created_at,
         NULL::integer   AS amount,
         NULL::varchar   AS closing_reason,
-        NULL::bigint    AS status_id
+        NULL::bigint    AS status_id,
+        ROW_NUMBER() OVER (
+            PARTITION BY s.visitor_id
+            ORDER BY s.visit_date DESC
+        ) AS rn
     FROM sessions_flagged s
-    WHERE s.is_paid
-      AND s.visitor_id NOT IN (SELECT visitor_id FROM leads)
-    ORDER BY s.visitor_id, s.visit_date DESC
+    WHERE s.visitor_id NOT IN (SELECT visitor_id FROM leads)
+),
+last_paid_no_lead AS (
+    SELECT
+        visitor_id, visit_date, utm_source, utm_medium, utm_campaign,
+        lead_id, created_at, amount, closing_reason, status_id
+    FROM last_paid_no_lead_ranked
+    WHERE rn = 1
 )
 
 SELECT * FROM last_paid_for_lead
