@@ -39,12 +39,11 @@ last_paid_for_lead AS (
         lead_id, created_at, amount, closing_reason, status_id
     FROM last_paid_for_lead_ranked
     WHERE rn = 1
-)
-
-SELECT * FROM last_paid_for_lead
-ORDER BY 
-    amount DESC NULLS LAST,
+    ORDER BY amount DESC NULLS LAST,
     visit_date ASC,
     utm_source ASC,
     utm_medium ASC,
-    utm_campaign ASC;
+    utm_campaign ASC
+)
+
+SELECT * FROM last_paid_for_lead;
