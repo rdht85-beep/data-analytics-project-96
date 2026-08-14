@@ -31,19 +31,23 @@ last_paid_for_lead_ranked AS (
     JOIN sessions_flagged s
         ON s.visitor_id = l.visitor_id
        AND s.visit_date <= l.created_at
-),
+)
 
-last_paid_for_lead AS (
-    SELECT
-        visitor_id, visit_date, utm_source, utm_medium, utm_campaign,
-        lead_id, created_at, amount, closing_reason, status_id
-    FROM last_paid_for_lead_ranked
-    WHERE rn = 1
-    ORDER BY amount DESC NULLS LAST,
+ SELECT
+ 	visitor_id, 
+ 	visit_date, 
+ 	utm_source, 
+ 	utm_medium, 
+ 	utm_campaign,
+ 	lead_id, 
+ 	created_at, 
+ 	amount, 
+ 	closing_reason, 
+ 	status_id
+FROM last_paid_for_lead_ranked
+WHERE rn = 1
+ORDER BY amount DESC NULLS LAST,
     visit_date ASC,
     utm_source ASC,
     utm_medium ASC,
-    utm_campaign ASC
-)
-
-SELECT * FROM last_paid_for_lead;
+    utm_campaign ASC;

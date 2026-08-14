@@ -40,51 +40,57 @@ last_paid_click AS (
     WHERE rn = 1
 ),
 
-ads_union AS (
-    SELECT campaign_date, utm_source, utm_medium, utm_campaign, daily_spent
-    FROM vk_ads
-    UNION ALL
-    SELECT campaign_date, utm_source, utm_medium, utm_campaign, daily_spent
-    FROM ya_ads
+leads_visits_agg AS (
+    SELECT
+        visit_date::date,
+        utm_source,
+        utm_medium,
+        utm_campaign,
+        COUNT(visitor_id) AS visitors_count,
+        COUNT(DISTINCT lead_id) AS leads_count,
+        COUNT(DISTINCT lead_id) FILTER (WHERE status_id = 142) AS purchases_count,
+        SUM(amount) FILTER (WHERE status_id = 142) AS revenue
+    FROM last_paid_click
+    GROUP BY visit_date::date, utm_source, utm_medium, utm_campaign
 ),
 
-spend_agg AS (
+ads_spend_agg AS (
     SELECT
         campaign_date::date AS visit_date,
         utm_source,
         utm_medium,
         utm_campaign,
         SUM(daily_spent) AS total_cost
-    FROM ads_union
+    FROM (
+        SELECT campaign_date, utm_source, utm_medium, utm_campaign, daily_spent
+        FROM vk_ads
+        UNION ALL
+        SELECT campaign_date, utm_source, utm_medium, utm_campaign, daily_spent
+        FROM ya_ads
+    ) all_ads
     GROUP BY campaign_date::date, utm_source, utm_medium, utm_campaign
-),
-
-final AS (
-    SELECT
-        lpc.visit_date,
-        COUNT(lpc.visitor_id) AS visitors_count,
-        lpc.utm_source,
-        lpc.utm_medium,
-        lpc.utm_campaign,
-        sp.total_cost,
-        COUNT(DISTINCT lpc.lead_id) AS leads_count,
-        COUNT(DISTINCT lpc.lead_id) FILTER (WHERE lpc.status_id = 142) AS purchases_count,
-        SUM(lpc.amount) FILTER (WHERE lpc.status_id = 142) AS revenue
-    FROM last_paid_click lpc
-    LEFT JOIN spend_agg sp
-        ON sp.visit_date = lpc.visit_date
-        AND sp.utm_source = lpc.utm_source
-        AND sp.utm_medium = lpc.utm_medium
-        AND sp.utm_campaign = lpc.utm_campaign
-    GROUP BY 1, 3, 4, 5, sp.total_cost
 )
 
-SELECT *
-FROM final
+SELECT
+    lva.visit_date,
+    lva.visitors_count,
+    lva.utm_source,
+    lva.utm_medium,
+    lva.utm_campaign,
+    asa.total_cost,
+    lva.leads_count,
+    lva.purchases_count,
+    lva.revenue
+FROM leads_visits_agg lva
+LEFT JOIN ads_spend_agg asa
+    ON asa.visit_date = lva.visit_date
+    AND asa.utm_source = lva.utm_source
+    AND asa.utm_medium = lva.utm_medium
+    AND asa.utm_campaign = lva.utm_campaign
 ORDER BY 
-    revenue DESC NULLS LAST,
-    visit_date ASC,
-    visitors_count DESC,
-    utm_source ASC,
-    utm_medium ASC,
-    utm_campaign ASC;
+    lva.revenue DESC NULLS LAST,
+    lva.visit_date ASC,
+    lva.visitors_count DESC,
+    lva.utm_source ASC,
+    lva.utm_medium ASC,
+    lva.utm_campaign ASC;
