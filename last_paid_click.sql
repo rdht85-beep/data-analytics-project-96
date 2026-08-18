@@ -24,11 +24,11 @@ last_paid_for_lead_ranked AS (
         l.closing_reason,
         l.status_id,
         ROW_NUMBER() OVER (
-            PARTITION BY l.lead_id
+            PARTITION BY s.visitor_id
             ORDER BY s.visit_date DESC
         ) AS rn
-    FROM leads l
-    JOIN sessions_flagged s
+    FROM sessions_flagged s
+    LEFT JOIN leads l
         ON s.visitor_id = l.visitor_id
        AND s.visit_date <= l.created_at
 )

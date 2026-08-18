@@ -31,9 +31,9 @@ last_paid_click AS (
             l.amount,
             l.status_id,
             s.visitor_id,
-            ROW_NUMBER() OVER (PARTITION BY l.lead_id ORDER BY s.visit_date DESC) AS rn
-        FROM leads l
-        JOIN sessions_flagged s
+            ROW_NUMBER() OVER (PARTITION BY s.visitor_id ORDER BY s.visit_date DESC) AS rn
+        FROM sessions_flagged s
+        LEFT JOIN leads l
             ON s.visitor_id = l.visitor_id
             AND s.visit_date <= l.created_at
     ) ranked
@@ -72,25 +72,25 @@ ads_spend_agg AS (
 )
 
 SELECT
-    lva.visit_date,
-    lva.visitors_count,
-    lva.utm_source,
-    lva.utm_medium,
-    lva.utm_campaign,
-    asa.total_cost,
-    lva.leads_count,
-    lva.purchases_count,
-    lva.revenue
-FROM leads_visits_agg lva
-LEFT JOIN ads_spend_agg asa
-    ON asa.visit_date = lva.visit_date
-    AND asa.utm_source = lva.utm_source
-    AND asa.utm_medium = lva.utm_medium
-    AND asa.utm_campaign = lva.utm_campaign
+    lv.visit_date,
+    lv.visitors_count,
+    lv.utm_source,
+    lv.utm_medium,
+    lv.utm_campaign,
+    a.total_cost,
+    lv.leads_count,
+    lv.purchases_count,
+    lv.revenue
+FROM leads_visits_agg lv
+LEFT JOIN ads_spend_agg a
+    ON a.visit_date = lv.visit_date
+    AND a.utm_source = lv.utm_source
+    AND a.utm_medium = lv.utm_medium
+    AND a.utm_campaign = lv.utm_campaign
 ORDER BY 
-    lva.revenue DESC NULLS LAST,
-    lva.visit_date ASC,
-    lva.visitors_count DESC,
-    lva.utm_source ASC,
-    lva.utm_medium ASC,
-    lva.utm_campaign ASC;
+    lv.revenue DESC NULLS LAST,
+    lv.visit_date ASC,
+    lv.visitors_count DESC,
+    lv.utm_source ASC,
+    lv.utm_medium ASC,
+    lv.utm_campaign ASC;
